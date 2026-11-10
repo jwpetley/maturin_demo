@@ -52,3 +52,14 @@ The endpoint only accepts a named example and one of its preset input sizes. It 
 - `python/tests/` checks result parity, the page, and the benchmark endpoint.
 
 Keeping the Rust crate at the repository root lets maturin build it directly, while `python/` keeps the importable package separate from Rust's `src/` directory. Flask and the web demo use the same installed Python package and native extension.
+
+## Run with Docker
+
+Build the image from the project root and publish its port:
+
+```bash
+docker build -t maturin-flask-demo .
+docker run --rm -p 5000:5000 maturin-flask-demo
+```
+
+Then open [http://127.0.0.1:5000](http://127.0.0.1:5000). The multi-stage Docker build compiles the extension in a Python environment with Rust tooling, then copies the wheel into a smaller runtime image. The app runs under Waitress as a non-root user.
