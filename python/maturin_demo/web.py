@@ -6,7 +6,15 @@ from collections.abc import Callable
 from flask import Flask, jsonify, render_template, request
 
 from . import _native
-from .benchmarks import count_primes_python, sum_squares_python
+from .benchmarks import (
+    Trade,
+    count_primes_python,
+    fibonacci_checksum_python,
+    make_trade_rows,
+    sum_multiples_python,
+    sum_squares_python,
+    summarize_trades_python,
+)
 
 PRESETS = {
     "small": "Small",
@@ -45,6 +53,27 @@ fn count_primes(limit: usize) -> usize {
 
     is_prime.into_iter().filter(|prime| *prime).count()
 }""",
+    "sum_multiples": """#[pyfunction]
+fn sum_multiples(limit: u64) -> u64 {
+    let mut total = std::hint::black_box(0_u64);
+    for value in 0..limit {
+        if value % 3 == 0 || value % 5 == 0 {
+            total = std::hint::black_box(total + value);
+        }
+    }
+    total
+}""",
+    "fibonacci_checksum": """#[pyfunction]
+fn fibonacci_checksum(terms: u64) -> u64 {
+    let (mut previous, mut current) = (0_u64, 1_u64);
+    let mut total = 0_u64;
+    for _ in 0..terms {
+        total = std::hint::black_box(total + current);
+        total %= 1_000_000_007;
+        (previous, current) = (current, (previous + current) % 1_000_000_007);
+    }
+    total
+}""",
 }
 
 EXAMPLES = [
@@ -78,14 +107,75 @@ EXAMPLES = [
             {"key": "large", "label": "Large — 2,000,000", "value": 2_000_000},
         ],
     },
+    {
+        "key": "sum_multiples",
+        "name": "Sum multiples of 3 or 5",
+        "description": "Add the numbers below a limit that are divisible by 3 or 5.",
+        "input_name": "limit",
+        "python_function": sum_multiples_python,
+        "rust_function": _native.sum_multiples,
+        "python_source": inspect.getsource(sum_multiples_python),
+        "rust_source": RUST_SOURCES["sum_multiples"],
+        "presets": [
+            {"key": "small", "label": "Small — 10,000", "value": 10_000},
+            {"key": "medium", "label": "Medium — 500,000", "value": 500_000},
+            {"key": "large", "label": "Large — 2,000,000", "value": 2_000_000},
+        ],
+    },
+    {
+        "key": "fibonacci_checksum",
+        "name": "Fibonacci checksum",
+        "description": "Sum a fixed number of Fibonacci terms modulo 1,000,000,007.",
+        "input_name": "terms",
+        "python_function": fibonacci_checksum_python,
+        "rust_function": _native.fibonacci_checksum,
+        "python_source": inspect.getsource(fibonacci_checksum_python),
+        "rust_source": RUST_SOURCES["fibonacci_checksum"],
+        "presets": [
+            {"key": "small", "label": "Small — 1,000 terms", "value": 1_000},
+            {"key": "medium", "label": "Medium — 100,000 terms", "value": 100_000},
+            {"key": "large", "label": "Large — 1,000,000 terms", "value": 1_000_000},
+        ],
+    },
 ]
 
 EXAMPLE_BY_KEY = {example["key"]: example for example in EXAMPLES}
+COLLECTION_PRESETS = [
+    {"key": "small", "label": "Small — 10,000 records", "value": 10_000},
+    {"key": "medium", "label": "Medium — 100,000 records", "value": 100_000},
+    {"key": "large", "label": "Large — 500,000 records", "value": 500_000},
+]
+COLLECTION_PYTHON_SOURCE = (
+    inspect.getsource(Trade)
+    + "\n\n"
+    + inspect.getsource(summarize_trades_python)
+)
+COLLECTION_RUST_SOURCE = """struct Trade {
+    unit_price: u64,
+    quantity: u64,
+}
+
+#[pyfunction]
+fn summarize_trades(rows: Vec<(u64, u64)>) -> (u64, usize) {
+    let trades = rows
+        .into_iter()
+        .map(|(unit_price, quantity)| Trade {
+            unit_price,
+            quantity,
+        });
+    let mut total_notional = 0_u64;
+    let mut count = 0;
+    for trade in trades {
+        total_notional += trade.unit_price * trade.quantity;
+        count += 1;
+    }
+    (total_notional, count)
+}"""
 
 
-def _median_runtime(function: Callable[[int], int], value: int) -> float:
+def _median_runtime(function: Callable[[], object]) -> float:
     return statistics.median(
-        timeit.repeat(lambda: function(value), repeat=3, number=1)
+        timeit.repeat(function, repeat=3, number=1)
     )
 
 
@@ -94,7 +184,13 @@ def create_app() -> Flask:
 
     @app.get("/")
     def index():
-        return render_template("index.html", examples=EXAMPLES)
+        return render_template(
+            "index.html",
+            examples=EXAMPLES,
+            collection_python_source=COLLECTION_PYTHON_SOURCE,
+            collection_rust_source=COLLECTION_RUST_SOURCE,
+            collection_presets=COLLECTION_PRESETS,
+        )
 
     @app.post("/api/run")
     def run_benchmark():
@@ -120,8 +216,10 @@ def create_app() -> Flask:
         if python_result != rust_result:
             return jsonify(error="The Python and Rust results did not match."), 500
 
-        python_seconds = _median_runtime(example["python_function"], value)
-        rust_seconds = _median_runtime(example["rust_function"], value)
+        python_seconds = _median_runtime(
+            lambda: example["python_function"](value)
+        )
+        rust_seconds = _median_runtime(lambda: example["rust_function"](value))
         speedup = python_seconds / rust_seconds if rust_seconds else None
 
         return jsonify(
@@ -129,6 +227,43 @@ def create_app() -> Flask:
             input_name=example["input_name"],
             input_value=value,
             result=python_result,
+            python_seconds=python_seconds,
+            rust_seconds=rust_seconds,
+            speedup=speedup,
+        )
+
+    @app.post("/api/run-collection")
+    def run_collection_benchmark():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify(error="Expected a JSON object with a preset."), 400
+
+        preset_key = payload.get("preset")
+        if not isinstance(preset_key, str):
+            return jsonify(error="Choose one of the listed record counts."), 400
+        preset = next(
+            (item for item in COLLECTION_PRESETS if item["key"] == preset_key),
+            None,
+        )
+        if preset is None:
+            return jsonify(error="Choose one of the listed record counts."), 400
+
+        rows = make_trade_rows(preset["value"])
+        python_trades = [Trade(unit_price, quantity) for unit_price, quantity in rows]
+        python_function = lambda: summarize_trades_python(python_trades)
+        rust_function = lambda: _native.summarize_trades(rows)
+        python_result = python_function()
+        rust_result = rust_function()
+        if python_result != rust_result:
+            return jsonify(error="The Python and Rust results did not match."), 500
+
+        python_seconds = _median_runtime(python_function)
+        rust_seconds = _median_runtime(rust_function)
+        speedup = python_seconds / rust_seconds if rust_seconds else None
+
+        return jsonify(
+            input_value=preset["value"],
+            result={"total_notional": python_result[0], "records": python_result[1]},
             python_seconds=python_seconds,
             rust_seconds=rust_seconds,
             speedup=speedup,

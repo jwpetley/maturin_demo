@@ -39,15 +39,17 @@ Start the local Flask development server from the project root:
 python -m maturin_demo
 ```
 
-Open [http://127.0.0.1:5000](http://127.0.0.1:5000). The Benchmarks tab has two examples: summing squares and counting primes. Choose one of the fixed input sizes and run the Python/Rust comparison. Each side is measured three times and the median is shown; results are checked for equality before timing. The Rust sum-of-squares loop uses `std::hint::black_box` to keep the optimizer from replacing this tiny arithmetic loop with a closed-form result. These measurements are illustrative and depend on the machine and system load.
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000). The Benchmarks tab compares four functions: summing squares, counting primes, summing multiples of 3 or 5, and calculating a Fibonacci checksum. Choose one of the fixed input sizes and run the Python/Rust comparison. Each side is measured three times and the median is shown; results are checked for equality before timing. The Rust sum-of-squares and multiples loops use `std::hint::black_box` to keep the optimizer from replacing their work with a closed-form result. These measurements are illustrative and depend on the machine and system load.
 
-The endpoint only accepts a named example and one of its preset input sizes. It does not execute submitted code or accept arbitrary workload sizes. The local Flask server is for development; use a WSGI server for shared deployments.
+The Custom structs tab compares summing the notional value of a collection of trades. Python uses a `Trade` dataclass; Rust maps the same values into a `Trade` struct. Record generation is excluded from both measurements, while conversion of the tuple list into Rust structs is included in Rust's time to make the Python/Rust boundary visible.
+
+The endpoints only accept named examples and preset input sizes. They do not execute submitted code or accept arbitrary workload sizes. The local Flask server is for development; use a WSGI server for shared deployments.
 
 ## Project structure
 
 - `pyproject.toml` defines Python package metadata, dependencies, tests, and maturin's mixed-project settings.
 - `Cargo.toml` and `src/lib.rs` define the PyO3 extension built as a Rust dynamic library.
-- `python/maturin_demo/benchmarks.py` contains pure-Python implementations, while `web.py` contains the Flask routes and comparison logic.
+- `python/maturin_demo/benchmarks.py` contains pure-Python implementations and the `Trade` class, while `web.py` contains the Flask routes and comparison logic.
 - `python/maturin_demo/templates/` and `static/` hold the page, styles, and browser behavior.
 - `python/tests/` checks result parity, the page, and the benchmark endpoint.
 

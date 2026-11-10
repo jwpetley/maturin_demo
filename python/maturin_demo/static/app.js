@@ -13,20 +13,25 @@ for (const button of tabButtons) {
 
 for (const button of document.querySelectorAll(".run-button")) {
   button.addEventListener("click", async () => {
+    const isCollection = button.dataset.collection === "true";
     const example = button.dataset.example;
-    const preset = document.getElementById(`preset-${example}`).value;
-    const resultPanel = document.querySelector(`[data-result="${example}"]`);
+    const resultKey = isCollection ? "collection" : example;
+    const preset = document.getElementById(`preset-${resultKey}`).value;
+    const resultPanel = document.querySelector(`[data-result="${resultKey}"]`);
     button.disabled = true;
     button.textContent = "Running…";
     resultPanel.textContent = "Running both implementations…";
     resultPanel.classList.add("is-running");
 
     try {
-      const response = await fetch("/api/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ example, preset }),
-      });
+      const response = await fetch(
+        isCollection ? "/api/run-collection" : "/api/run",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(isCollection ? { preset } : { example, preset }),
+        },
+      );
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || "The benchmark could not be completed.");
@@ -47,8 +52,12 @@ for (const button of document.querySelectorAll(".run-button")) {
       summary.textContent = comparison;
       const detail = document.createElement("span");
       detail.className = "result-detail";
+      const resultText = typeof result.result === "object"
+        ? `Notional: ${result.result.total_notional.toLocaleString()} · ` +
+          `${result.result.records.toLocaleString()} records`
+        : `Result: ${result.result.toLocaleString()}`;
       detail.textContent =
-        `Result: ${result.result.toLocaleString()} · ` +
+        `${resultText} · ` +
         `Python ${pythonMs.toFixed(3)} ms · Rust ${rustMs.toFixed(3)} ms`;
       resultPanel.append(summary, detail);
     } catch (error) {

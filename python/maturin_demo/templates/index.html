@@ -31,6 +31,9 @@
         <button id="benchmarks-tab-button" class="tab-button is-active" type="button" role="tab"
                 aria-selected="true" aria-controls="benchmarks-panel"
                 data-tab="benchmarks-panel">Benchmarks</button>
+        <button id="collections-tab-button" class="tab-button" type="button" role="tab"
+                aria-selected="false" aria-controls="collections-panel"
+                data-tab="collections-panel">Custom structs</button>
         <button id="maturin-tab-button" class="tab-button" type="button" role="tab"
                 aria-selected="false" aria-controls="maturin-panel"
                 data-tab="maturin-panel">What is maturin?</button>
@@ -91,6 +94,56 @@
         </p>
       </section>
 
+      <section id="collections-panel" class="tab-panel" role="tabpanel"
+               aria-labelledby="collections-tab-button" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Data that has a shape</p>
+            <h2>Classes in Python. Structs in Rust.</h2>
+          </div>
+          <p class="timing-note">Aggregate a collection of trade records</p>
+        </div>
+
+        <p class="about-lede collection-lede">
+          Each trade has a unit price and quantity. Python stores the records as
+          <code>Trade</code> objects; Rust maps the same values into a
+          <code>Trade</code> struct and sums their notional value. The comparison
+          includes time spent crossing the Python/Rust boundary.
+        </p>
+        <div class="code-grid">
+          <div class="code-card">
+            <div class="code-label"><span class="language-dot python-dot"></span> Python · dataclass</div>
+            <pre><code>{{ collection_python_source }}</code></pre>
+          </div>
+          <div class="code-card rust-card">
+            <div class="code-label"><span class="language-dot rust-dot"></span> Rust · struct + PyO3</div>
+            <pre><code>{{ collection_rust_source }}</code></pre>
+          </div>
+        </div>
+
+        <div class="collection-controls">
+          <div class="run-control">
+            <label for="preset-collection">Collection size</label>
+            <select id="preset-collection" name="preset">
+              {% for preset in collection_presets %}
+              <option value="{{ preset.key }}">{{ preset.label }}</option>
+              {% endfor %}
+            </select>
+            <button class="run-button" type="button" data-collection="true">
+              <span aria-hidden="true">▶</span> Run comparison
+            </button>
+          </div>
+        </div>
+        <div class="result-panel" data-result="collection" aria-live="polite">
+          <span class="result-placeholder">Run the example to compare execution times.</span>
+        </div>
+        <p class="fine-print">
+          Record generation is excluded from both timings. The Rust timing includes
+          PyO3 converting the Python tuple list into Rust structs, so it shows the
+          cost at the language boundary as well as the aggregation.
+        </p>
+      </section>
+
       <section id="maturin-panel" class="tab-panel about-panel" role="tabpanel"
                aria-labelledby="maturin-tab-button" hidden>
         <p class="eyebrow">The bridge between the two</p>
@@ -120,9 +173,9 @@
         <div class="callout">
           <strong>In this project</strong>
           <p>
-            Flask and the comparison logic stay in Python. Only the two benchmark
-            functions cross into the compiled <code>maturin_demo._native</code>
-            module, keeping the boundary small and easy to explore.
+            Flask and the comparison logic stay in Python. The benchmark functions
+            and collection aggregator are exposed by the compiled
+            <code>maturin_demo._native</code> module through PyO3.
           </p>
         </div>
         <p class="fine-print">

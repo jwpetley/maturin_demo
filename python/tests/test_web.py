@@ -15,6 +15,10 @@ def test_home_page_shows_examples_and_maturin_tab(client) -> None:
     page = response.get_data(as_text=True)
     assert "Sum of squares" in page
     assert "Count prime numbers" in page
+    assert "Sum multiples of 3 or 5" in page
+    assert "Fibonacci checksum" in page
+    assert "Custom structs" in page
+    assert "Classes in Python. Structs in Rust." in page
     assert "What is maturin?" in page
     assert "fn count_primes" in page
     assert 'role="tablist"' in page
@@ -64,6 +68,27 @@ def test_run_benchmark_rejects_malformed_json(client) -> None:
     response = client.post(
         "/api/run", data="{", content_type="application/json"
     )
+
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+
+
+def test_run_collection_benchmark_returns_aggregate_and_timings(client) -> None:
+    response = client.post("/api/run-collection", json={"preset": "small"})
+
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["input_value"] == 10_000
+    assert result["result"]["records"] == 10_000
+    assert result["result"]["total_notional"] > 0
+    assert result["python_seconds"] > 0
+    assert result["rust_seconds"] > 0
+    assert result["speedup"] > 0
+
+
+@pytest.mark.parametrize("payload", [None, {}, {"preset": []}, {"preset": "huge"}])
+def test_run_collection_benchmark_rejects_unlisted_sizes(client, payload) -> None:
+    response = client.post("/api/run-collection", json=payload)
 
     assert response.status_code == 400
     assert "error" in response.get_json()

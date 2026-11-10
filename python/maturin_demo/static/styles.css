@@ -238,6 +238,10 @@ pre {
 .result-summary { color: var(--green); }
 .result-panel.is-running { color: var(--muted); }
 .fine-print { margin: 17px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.collection-lede { margin-bottom: 20px; font-size: 14px; }
+.collection-lede code { color: var(--green); font: 12px var(--mono); }
+.collection-controls { display: flex; justify-content: flex-end; margin-top: 20px; }
+.collection-controls .run-control { max-width: 360px; }
 
 .about-panel { max-width: 820px; }
 .about-panel h2 { margin-bottom: 16px; }
