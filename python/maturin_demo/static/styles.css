@@ -260,6 +260,9 @@ pre {
 .callout { margin-top: 16px; padding: 19px 21px; border-left: 3px solid var(--green); background: #eaf0e8; }
 .callout strong { display: block; margin-bottom: 7px; font-size: 12px; }
 .callout code { font: 11px var(--mono); color: var(--green); }
+.callout.example-call { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px 12px; padding: 12px 15px; }
+.callout.example-call strong { margin: 0; }
+.callout.example-call code { font-size: 11px; }
 .about-panel a { color: var(--green); }
 
 footer {

@@ -1,6 +1,10 @@
+from types import SimpleNamespace
+
 import pytest
 
 from maturin_demo import (
+    Portfolio,
+    Position,
     count_primes,
     count_primes_python,
     fibonacci_checksum,
@@ -9,11 +13,8 @@ from maturin_demo import (
     sum_multiples_python,
     sum_squares,
     sum_squares_python,
-    summarize_trades,
-    summarize_trades_python,
-    Trade,
 )
-from maturin_demo.benchmarks import make_trade_rows
+from maturin_demo import _native, make_portfolio
 
 
 @pytest.mark.parametrize("n", [0, 1, 25, 2_000_000])
@@ -37,8 +38,47 @@ def test_fibonacci_checksum_matches_python(terms: int) -> None:
 
 
 @pytest.mark.parametrize("count", [0, 1, 100, 10_000])
-def test_trade_struct_aggregation_matches_python(count: int) -> None:
-    rows = make_trade_rows(count)
-    python_trades = [Trade(unit_price, quantity) for unit_price, quantity in rows]
+def test_python_portfolio_rust_method_matches_python(count: int) -> None:
+    portfolio = make_portfolio(count)
 
-    assert summarize_trades(rows) == summarize_trades_python(python_trades)
+    assert portfolio.value_rust() == portfolio.value_python()
+
+
+def test_native_portfolio_method_accepts_another_python_class_shape() -> None:
+    position = Position(
+        symbol="ALT", quantity=3, unit_price=1_250, fee_bps=15, active=True
+    )
+    expected = Portfolio(name="Expected", positions=[position]).value_python()
+    custom_position = SimpleNamespace(
+        active=position.active,
+        quantity=position.quantity,
+        unit_price=position.unit_price,
+        fee_bps=position.fee_bps,
+    )
+    custom_portfolio = SimpleNamespace(positions=[custom_position])
+
+    assert _native.portfolio_value(custom_portfolio) == expected
+
+
+def test_portfolio_rust_method_rejects_missing_python_attributes() -> None:
+    with pytest.raises(AttributeError, match="positions"):
+        _native.portfolio_value(object())
+
+
+def test_portfolio_rust_method_rejects_invalid_fee() -> None:
+    portfolio = make_portfolio(1)
+    portfolio.positions[0] = Position(
+        symbol="BAD", quantity=1, unit_price=100, fee_bps=10_001
+    )
+
+    with pytest.raises(ValueError, match="fee_bps"):
+        portfolio.value_rust()
+
+
+def test_portfolio_rust_method_rejects_incompatible_python_field() -> None:
+    portfolio = make_portfolio(1)
+    portfolio.positions[0].active = True
+    portfolio.positions[0].quantity = "many"
+
+    with pytest.raises(TypeError):
+        portfolio.value_rust()

@@ -1,13 +1,3 @@
-from dataclasses import dataclass
-from collections.abc import Sequence
-
-
-@dataclass(frozen=True, slots=True)
-class Trade:
-    unit_price: int
-    quantity: int
-
-
 def sum_squares_python(n: int) -> int:
     total = 0
     for value in range(1, n + 1):
@@ -47,17 +37,3 @@ def fibonacci_checksum_python(terms: int) -> int:
         total = (total + current) % 1_000_000_007
         previous, current = current, (previous + current) % 1_000_000_007
     return total
-
-
-def summarize_trades_python(trades: Sequence[Trade]) -> tuple[int, int]:
-    total_notional = 0
-    for trade in trades:
-        total_notional += trade.unit_price * trade.quantity
-    return total_notional, len(trades)
-
-
-def make_trade_rows(count: int) -> list[tuple[int, int]]:
-    return [
-        (1 + (index * 97) % 1_000, 1 + (index * 31) % 50)
-        for index in range(count)
-    ]

@@ -7,14 +7,12 @@ from flask import Flask, jsonify, render_template, request
 
 from . import _native
 from .benchmarks import (
-    Trade,
     count_primes_python,
     fibonacci_checksum_python,
-    make_trade_rows,
     sum_multiples_python,
     sum_squares_python,
-    summarize_trades_python,
 )
+from .models import Portfolio, Position, make_portfolio
 
 PRESETS = {
     "small": "Small",
@@ -84,6 +82,7 @@ EXAMPLES = [
         "input_name": "n",
         "python_function": sum_squares_python,
         "rust_function": _native.sum_squares,
+        "python_call": "_native.sum_squares(n)",
         "python_source": inspect.getsource(sum_squares_python),
         "rust_source": RUST_SOURCES["sum_squares"],
         "presets": [
@@ -99,6 +98,7 @@ EXAMPLES = [
         "input_name": "limit",
         "python_function": count_primes_python,
         "rust_function": _native.count_primes,
+        "python_call": "_native.count_primes(limit)",
         "python_source": inspect.getsource(count_primes_python),
         "rust_source": RUST_SOURCES["count_primes"],
         "presets": [
@@ -114,6 +114,7 @@ EXAMPLES = [
         "input_name": "limit",
         "python_function": sum_multiples_python,
         "rust_function": _native.sum_multiples,
+        "python_call": "_native.sum_multiples(limit)",
         "python_source": inspect.getsource(sum_multiples_python),
         "rust_source": RUST_SOURCES["sum_multiples"],
         "presets": [
@@ -129,6 +130,7 @@ EXAMPLES = [
         "input_name": "terms",
         "python_function": fibonacci_checksum_python,
         "rust_function": _native.fibonacci_checksum,
+        "python_call": "_native.fibonacci_checksum(terms)",
         "python_source": inspect.getsource(fibonacci_checksum_python),
         "rust_source": RUST_SOURCES["fibonacci_checksum"],
         "presets": [
@@ -141,35 +143,63 @@ EXAMPLES = [
 
 EXAMPLE_BY_KEY = {example["key"]: example for example in EXAMPLES}
 COLLECTION_PRESETS = [
-    {"key": "small", "label": "Small — 10,000 records", "value": 10_000},
-    {"key": "medium", "label": "Medium — 100,000 records", "value": 100_000},
-    {"key": "large", "label": "Large — 500,000 records", "value": 500_000},
+    {"key": "small", "label": "Small — 1,000 positions", "value": 1_000},
+    {"key": "medium", "label": "Medium — 10,000 positions", "value": 10_000},
+    {"key": "large", "label": "Large — 50,000 positions", "value": 50_000},
 ]
 COLLECTION_PYTHON_SOURCE = (
-    inspect.getsource(Trade)
+    "from dataclasses import dataclass\nfrom maturin_demo import _native\n\n"
+    + inspect.getsource(Position)
     + "\n\n"
-    + inspect.getsource(summarize_trades_python)
+    + inspect.getsource(Portfolio)
 )
-COLLECTION_RUST_SOURCE = """struct Trade {
-    unit_price: u64,
-    quantity: u64,
-}
+COLLECTION_RUST_SOURCE = """use pyo3::exceptions::{PyOverflowError, PyValueError};
+use pyo3::prelude::*;
 
 #[pyfunction]
-fn summarize_trades(rows: Vec<(u64, u64)>) -> (u64, usize) {
-    let trades = rows
-        .into_iter()
-        .map(|(unit_price, quantity)| Trade {
-            unit_price,
-            quantity,
-        });
-    let mut total_notional = 0_u64;
-    let mut count = 0;
-    for trade in trades {
-        total_notional += trade.unit_price * trade.quantity;
-        count += 1;
+fn portfolio_value(portfolio: &Bound<'_, PyAny>) -> PyResult<u64> {
+    let positions = portfolio.getattr("positions")?;
+    let mut total = 0_u64;
+
+    for position in positions.try_iter()? {
+        let position = position?;
+        let active: bool = position.getattr("active")?.extract()?;
+        if !active {
+            continue;
+        }
+
+        let quantity: u64 = position.getattr("quantity")?.extract()?;
+        let unit_price: u64 = position.getattr("unit_price")?.extract()?;
+        let fee_bps: u64 = position.getattr("fee_bps")?.extract()?;
+        if fee_bps > 10_000 {
+            return Err(PyValueError::new_err("fee_bps must be at most 10,000"));
+        }
+
+        let mut modeled_value = quantity
+            .checked_mul(unit_price)
+            .ok_or_else(|| PyOverflowError::new_err("position value overflowed u64"))?;
+        for _ in 0..12 {
+            modeled_value = modeled_value
+                .checked_mul(1_000_003)
+                .and_then(|value| value.checked_add(quantity))
+                .ok_or_else(|| PyOverflowError::new_err("position model overflowed u64"))?
+                % 1_000_000_007;
+        }
+        let fee = modeled_value
+            .checked_mul(fee_bps)
+            .ok_or_else(|| PyOverflowError::new_err("position fee overflowed u64"))?
+            / 10_000;
+        total = total
+            .checked_add(modeled_value - fee)
+            .ok_or_else(|| PyOverflowError::new_err("portfolio value overflowed u64"))?;
     }
-    (total_notional, count)
+    Ok(total)
+}
+
+#[pymodule]
+fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(portfolio_value, module)?)?;
+    Ok(())
 }"""
 
 
@@ -190,6 +220,7 @@ def create_app() -> Flask:
             collection_python_source=COLLECTION_PYTHON_SOURCE,
             collection_rust_source=COLLECTION_RUST_SOURCE,
             collection_presets=COLLECTION_PRESETS,
+            collection_call_source="return _native.portfolio_value(self)",
         )
 
     @app.post("/api/run")
@@ -248,10 +279,9 @@ def create_app() -> Flask:
         if preset is None:
             return jsonify(error="Choose one of the listed record counts."), 400
 
-        rows = make_trade_rows(preset["value"])
-        python_trades = [Trade(unit_price, quantity) for unit_price, quantity in rows]
-        python_function = lambda: summarize_trades_python(python_trades)
-        rust_function = lambda: _native.summarize_trades(rows)
+        portfolio = make_portfolio(preset["value"])
+        python_function = portfolio.value_python
+        rust_function = portfolio.value_rust
         python_result = python_function()
         rust_result = rust_function()
         if python_result != rust_result:
@@ -263,7 +293,10 @@ def create_app() -> Flask:
 
         return jsonify(
             input_value=preset["value"],
-            result={"total_notional": python_result[0], "records": python_result[1]},
+            result={
+                "portfolio_value": python_result,
+                "positions": len(portfolio.positions),
+            },
             python_seconds=python_seconds,
             rust_seconds=rust_seconds,
             speedup=speedup,

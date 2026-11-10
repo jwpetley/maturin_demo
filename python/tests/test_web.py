@@ -18,9 +18,17 @@ def test_home_page_shows_examples_and_maturin_tab(client) -> None:
     assert "Sum multiples of 3 or 5" in page
     assert "Fibonacci checksum" in page
     assert "Custom structs" in page
-    assert "Classes in Python. Structs in Rust." in page
+    assert "Keep your class. Speed up its method." in page
+    assert "_native.sum_squares(n)" in page
+    assert "_native.count_primes(limit)" in page
+    assert "_native.sum_multiples(limit)" in page
+    assert "_native.fibonacci_checksum(terms)" in page
+    assert "_native.portfolio_value(self)" in page
+    assert "portfolio.getattr(" in page
+    assert ".extract()?" in page
     assert "What is maturin?" in page
     assert "fn count_primes" in page
+    assert "wrap_pyfunction!(portfolio_value, module)" in page
     assert 'role="tablist"' in page
 
 
@@ -78,9 +86,9 @@ def test_run_collection_benchmark_returns_aggregate_and_timings(client) -> None:
 
     assert response.status_code == 200
     result = response.get_json()
-    assert result["input_value"] == 10_000
-    assert result["result"]["records"] == 10_000
-    assert result["result"]["total_notional"] > 0
+    assert result["input_value"] == 1_000
+    assert result["result"]["positions"] == 1_000
+    assert result["result"]["portfolio_value"] > 0
     assert result["python_seconds"] > 0
     assert result["rust_seconds"] > 0
     assert result["speedup"] > 0

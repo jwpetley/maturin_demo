@@ -53,8 +53,8 @@ for (const button of document.querySelectorAll(".run-button")) {
       const detail = document.createElement("span");
       detail.className = "result-detail";
       const resultText = typeof result.result === "object"
-        ? `Notional: ${result.result.total_notional.toLocaleString()} · ` +
-          `${result.result.records.toLocaleString()} records`
+        ? `Portfolio value: ${result.result.portfolio_value.toLocaleString()} · ` +
+          `${result.result.positions.toLocaleString()} positions`
         : `Result: ${result.result.toLocaleString()}`;
       detail.textContent =
         `${resultText} · ` +

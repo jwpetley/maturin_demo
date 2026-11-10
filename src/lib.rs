@@ -1,9 +1,5 @@
+use pyo3::exceptions::{PyOverflowError, PyValueError};
 use pyo3::prelude::*;
-
-struct Trade {
-    unit_price: u64,
-    quantity: u64,
-}
 
 #[pyfunction]
 fn sum_squares(n: u64) -> u64 {
@@ -61,18 +57,44 @@ fn fibonacci_checksum(terms: u64) -> u64 {
 }
 
 #[pyfunction]
-fn summarize_trades(rows: Vec<(u64, u64)>) -> (u64, usize) {
-    let trades = rows.into_iter().map(|(unit_price, quantity)| Trade {
-        unit_price,
-        quantity,
-    });
-    let mut total_notional = 0_u64;
-    let mut count = 0;
-    for trade in trades {
-        total_notional += trade.unit_price * trade.quantity;
-        count += 1;
+fn portfolio_value(portfolio: &Bound<'_, PyAny>) -> PyResult<u64> {
+    let positions = portfolio.getattr("positions")?;
+    let mut total = 0_u64;
+
+    for position in positions.try_iter()? {
+        let position = position?;
+        let active: bool = position.getattr("active")?.extract()?;
+        if !active {
+            continue;
+        }
+
+        let quantity: u64 = position.getattr("quantity")?.extract()?;
+        let unit_price: u64 = position.getattr("unit_price")?.extract()?;
+        let fee_bps: u64 = position.getattr("fee_bps")?.extract()?;
+        if fee_bps > 10_000 {
+            return Err(PyValueError::new_err("fee_bps must be at most 10,000"));
+        }
+
+        let mut modeled_value = quantity
+            .checked_mul(unit_price)
+            .ok_or_else(|| PyOverflowError::new_err("position value overflowed u64"))?;
+        for _ in 0..12 {
+            modeled_value = modeled_value
+                .checked_mul(1_000_003)
+                .and_then(|value| value.checked_add(quantity))
+                .ok_or_else(|| PyOverflowError::new_err("position model overflowed u64"))?
+                % 1_000_000_007;
+        }
+        let fee = modeled_value
+            .checked_mul(fee_bps)
+            .ok_or_else(|| PyOverflowError::new_err("position fee overflowed u64"))?
+            / 10_000;
+        total = total
+            .checked_add(modeled_value - fee)
+            .ok_or_else(|| PyOverflowError::new_err("portfolio value overflowed u64"))?;
     }
-    (total_notional, count)
+
+    Ok(total)
 }
 
 #[pymodule]
@@ -81,6 +103,6 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(count_primes, module)?)?;
     module.add_function(wrap_pyfunction!(sum_multiples, module)?)?;
     module.add_function(wrap_pyfunction!(fibonacci_checksum, module)?)?;
-    module.add_function(wrap_pyfunction!(summarize_trades, module)?)?;
+    module.add_function(wrap_pyfunction!(portfolio_value, module)?)?;
     Ok(())
 }

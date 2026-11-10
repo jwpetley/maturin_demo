@@ -14,7 +14,7 @@
         <span class="brand-mark" aria-hidden="true">m</span>
         <span>maturin<span class="brand-light"> demo</span></span>
       </a>
-      <span class="header-note">Python, meet Rust.</span>
+      <span class="header-note">Python + rust</span>
     </header>
 
     <main>
@@ -82,6 +82,11 @@
               </div>
             </div>
 
+            <div class="callout example-call">
+              <strong>Call this Rust function from Python</strong>
+              <code>{{ example.python_call }}</code>
+            </div>
+
             <div class="result-panel" data-result="{{ example.key }}" aria-live="polite">
               <span class="result-placeholder">Run the example to compare execution times.</span>
             </div>
@@ -99,31 +104,37 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow">Data that has a shape</p>
-            <h2>Classes in Python. Structs in Rust.</h2>
+            <h2>Keep your class. Speed up its method.</h2>
           </div>
-          <p class="timing-note">Aggregate a collection of trade records</p>
+          <p class="timing-note">Run one Python-owned method on preset portfolios</p>
         </div>
 
         <p class="about-lede collection-lede">
-          Each trade has a unit price and quantity. Python stores the records as
-          <code>Trade</code> objects; Rust maps the same values into a
-          <code>Trade</code> struct and sums their notional value. The comparison
-          includes time spent crossing the Python/Rust boundary.
+          Keep your domain model in Python, and move only its CPU-heavy method. Here
+          <code>Portfolio</code> and <code>Position</code> remain Python classes;
+          Rust reads the fields it needs from the same portfolio object, then
+          runs a 12-step pricing calculation for every active position.
         </p>
         <div class="code-grid">
           <div class="code-card">
-            <div class="code-label"><span class="language-dot python-dot"></span> Python · dataclass</div>
+            <div class="code-label"><span class="language-dot python-dot"></span> Python · your domain classes</div>
             <pre><code>{{ collection_python_source }}</code></pre>
           </div>
           <div class="code-card rust-card">
-            <div class="code-label"><span class="language-dot rust-dot"></span> Rust · struct + PyO3</div>
+            <div class="code-label"><span class="language-dot rust-dot"></span> Rust · PyO3 reads the Python object</div>
             <pre><code>{{ collection_rust_source }}</code></pre>
           </div>
         </div>
 
+        <div class="callout">
+          <strong>The call from your Python method</strong>
+          <pre><code>{{ collection_call_source }}</code></pre>
+          <p>That passes the existing <code>self</code> object to Rust; no Rust replacement class is required.</p>
+        </div>
+
         <div class="collection-controls">
           <div class="run-control">
-            <label for="preset-collection">Collection size</label>
+            <label for="preset-collection">Portfolio size</label>
             <select id="preset-collection" name="preset">
               {% for preset in collection_presets %}
               <option value="{{ preset.key }}">{{ preset.label }}</option>
@@ -138,9 +149,10 @@
           <span class="result-placeholder">Run the example to compare execution times.</span>
         </div>
         <p class="fine-print">
-          Record generation is excluded from both timings. The Rust timing includes
-          PyO3 converting the Python tuple list into Rust structs, so it shows the
-          cost at the language boundary as well as the aggregation.
+          Portfolio construction is excluded from both timings. Rust's timing
+          includes looking up and converting each Python attribute through PyO3,
+          as well as the calculation. Rust reports an error for missing fields,
+          incompatible types, invalid fees, or arithmetic overflow.
         </p>
       </section>
 
@@ -186,7 +198,7 @@
     </main>
 
     <footer>
-      <span>Built for learning, not leaderboard chasing.</span>
+      <span>James Petley.</span>
       <span>Python <span aria-hidden="true">×</span> Rust</span>
     </footer>
   </body>

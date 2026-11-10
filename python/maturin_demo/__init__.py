@@ -3,27 +3,25 @@ from ._native import (
     fibonacci_checksum,
     sum_multiples,
     sum_squares,
-    summarize_trades,
 )
 from .benchmarks import (
-    Trade,
     count_primes_python,
     fibonacci_checksum_python,
     sum_multiples_python,
     sum_squares_python,
-    summarize_trades_python,
 )
+from .models import Portfolio, Position, make_portfolio
 
 __all__ = [
-    "Trade",
+    "Portfolio",
+    "Position",
     "count_primes",
     "count_primes_python",
     "fibonacci_checksum",
     "fibonacci_checksum_python",
+    "make_portfolio",
     "sum_multiples",
     "sum_multiples_python",
     "sum_squares",
     "sum_squares_python",
-    "summarize_trades",
-    "summarize_trades_python",
 ]
