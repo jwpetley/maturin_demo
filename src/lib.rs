@@ -2,7 +2,11 @@ use pyo3::prelude::*;
 
 #[pyfunction]
 fn sum_squares(n: u64) -> u64 {
-    (1..=n).map(|value| value * value).sum()
+    let mut total = std::hint::black_box(0_u64);
+    for value in 1..=n {
+        total = std::hint::black_box(total + value * value);
+    }
+    total
 }
 
 #[pyfunction]

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f4ef">
+    <title>Python × Rust — Maturin Demo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Maturin Demo home">
+        <span class="brand-mark" aria-hidden="true">m</span>
+        <span>maturin<span class="brand-light"> demo</span></span>
+      </a>
+      <span class="header-note">Python, meet Rust.</span>
+    </header>
+
+    <main>
+      <section class="intro">
+        <p class="eyebrow">A tiny native-speed experiment</p>
+        <h1>One idea.<br><span>Two languages.</span></h1>
+        <p class="intro-copy">
+          Compare the same small workloads in Python and Rust. The Rust functions
+          are compiled into a native Python extension with maturin and PyO3.
+        </p>
+      </section>
+
+      <nav class="tabs" role="tablist" aria-label="Demo sections">
+        <button id="benchmarks-tab-button" class="tab-button is-active" type="button" role="tab"
+                aria-selected="true" aria-controls="benchmarks-panel"
+                data-tab="benchmarks-panel">Benchmarks</button>
+        <button id="maturin-tab-button" class="tab-button" type="button" role="tab"
+                aria-selected="false" aria-controls="maturin-panel"
+                data-tab="maturin-panel">What is maturin?</button>
+      </nav>
+
+      <section id="benchmarks-panel" class="tab-panel" role="tabpanel"
+               aria-labelledby="benchmarks-tab-button">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Pick a workload</p>
+            <h2>See the code. Run the code.</h2>
+          </div>
+          <p class="timing-note">Median of 3 runs · same machine, same input</p>
+        </div>
+
+        <div class="example-list">
+          {% for example in examples %}
+          <article class="example-card">
+            <div class="example-heading">
+              <div>
+                <span class="example-number">0{{ loop.index }}</span>
+                <h3>{{ example.name }}</h3>
+                <p>{{ example.description }}</p>
+              </div>
+              <div class="run-control">
+                <label for="preset-{{ example.key }}">Input size</label>
+                <select id="preset-{{ example.key }}" name="preset">
+                  {% for preset in example.presets %}
+                  <option value="{{ preset.key }}">{{ preset.label }}</option>
+                  {% endfor %}
+                </select>
+                <button class="run-button" type="button" data-example="{{ example.key }}">
+                  <span aria-hidden="true">▶</span> Run comparison
+                </button>
+              </div>
+            </div>
+
+            <div class="code-grid">
+              <div class="code-card">
+                <div class="code-label"><span class="language-dot python-dot"></span> Python</div>
+                <pre><code>{{ example.python_source }}</code></pre>
+              </div>
+              <div class="code-card rust-card">
+                <div class="code-label"><span class="language-dot rust-dot"></span> Rust · PyO3</div>
+                <pre><code>{{ example.rust_source }}</code></pre>
+              </div>
+            </div>
+
+            <div class="result-panel" data-result="{{ example.key }}" aria-live="polite">
+              <span class="result-placeholder">Run the example to compare execution times.</span>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        <p class="fine-print">
+          Results are illustrative, not a promise of a particular speedup. They vary
+          with hardware, Python/Rust builds, and system load.
+        </p>
+      </section>
+
+      <section id="maturin-panel" class="tab-panel about-panel" role="tabpanel"
+               aria-labelledby="maturin-tab-button" hidden>
+        <p class="eyebrow">The bridge between the two</p>
+        <h2>So, what is maturin?</h2>
+        <p class="about-lede">
+          Maturin is a build tool for Python packages that contain Rust code. It
+          compiles Rust into a native extension and packages it in a wheel that
+          Python can install and import.
+        </p>
+        <div class="about-grid">
+          <article>
+            <span class="step-number">01</span>
+            <h3>Write Rust</h3>
+            <p>Implement performance-sensitive functions in a Rust crate.</p>
+          </article>
+          <article>
+            <span class="step-number">02</span>
+            <h3>Expose with PyO3</h3>
+            <p>PyO3 connects Rust functions and types to Python's extension API.</p>
+          </article>
+          <article>
+            <span class="step-number">03</span>
+            <h3>Build with maturin</h3>
+            <p>Maturin builds and installs the extension as part of a Python package.</p>
+          </article>
+        </div>
+        <div class="callout">
+          <strong>In this project</strong>
+          <p>
+            Flask and the comparison logic stay in Python. Only the two benchmark
+            functions cross into the compiled <code>maturin_demo._native</code>
+            module, keeping the boundary small and easy to explore.
+          </p>
+        </div>
+        <p class="fine-print">
+          Learn more at <a href="https://www.maturin.rs/" target="_blank" rel="noreferrer">maturin.rs</a>
+          and <a href="https://pyo3.rs/" target="_blank" rel="noreferrer">pyo3.rs</a>.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <span>Built for learning, not leaderboard chasing.</span>
+      <span>Python <span aria-hidden="true">×</span> Rust</span>
+    </footer>
+  </body>
+</html>
