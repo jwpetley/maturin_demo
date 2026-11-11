@@ -12,6 +12,7 @@ from .benchmarks import (
     sum_multiples_python,
     sum_squares_python,
 )
+from .external_crate import count_tags_python, make_tag_corpus
 from .models import Portfolio, Position, make_portfolio
 
 PRESETS = {
@@ -200,6 +201,56 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(portfolio_value, module)?)?;
     Ok(())
 }"""
+CRATE_PRESETS = [
+    {"key": "small", "label": "Small — 100 lines", "value": 100},
+    {"key": "medium", "label": "Medium — 10,000 lines", "value": 10_000},
+    {"key": "large", "label": "Large — 100,000 lines", "value": 100_000},
+]
+CRATE_CALL_SOURCE = """def count_tags_rust(text: str) -> dict[str, int]:
+    return _native.count_tags(text)"""
+CRATE_PYTHON_SOURCE = (
+    "import re\nfrom collections import Counter\nfrom maturin_demo import _native\n\n"
+    + inspect.getsource(count_tags_python)
+    + "\n\n"
+    + CRATE_CALL_SOURCE
+)
+CRATE_RUST_SOURCE = """use pyo3::prelude::*;
+use rayon::prelude::*;
+use regex::Regex;
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+static TAG_PATTERN: OnceLock<Regex> = OnceLock::new();
+
+#[pyfunction]
+fn count_tags(py: Python<'_>, text: &str) -> HashMap<String, usize> {
+    let pattern = TAG_PATTERN.get_or_init(|| {
+        Regex::new(r"#([A-Za-z][A-Za-z0-9_]{1,31})")
+            .expect("the built-in tag pattern is valid")
+    });
+
+    py.detach(|| {
+        text.par_lines()
+            .fold(HashMap::new, |mut counts, line| {
+                for captures in pattern.captures_iter(line) {
+                    *counts.entry(captures[1].to_owned()).or_insert(0) += 1;
+                }
+                counts
+            })
+            .reduce(HashMap::new, |mut left, right| {
+                for (tag, count) in right {
+                    *left.entry(tag).or_insert(0) += count;
+                }
+                left
+            })
+    })
+}
+
+#[pymodule]
+fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(count_tags, module)?)?;
+    Ok(())
+}"""
 
 
 def _median_runtime(function: Callable[[], object]) -> float:
@@ -221,6 +272,10 @@ def create_app() -> Flask:
             collection_rust_source=COLLECTION_RUST_SOURCE,
             collection_presets=COLLECTION_PRESETS,
             collection_call_source="return _native.portfolio_value(self)",
+            crate_python_source=CRATE_PYTHON_SOURCE,
+            crate_rust_source=CRATE_RUST_SOURCE,
+            crate_call_source=CRATE_CALL_SOURCE,
+            crate_presets=CRATE_PRESETS,
         )
 
     @app.post("/api/run")
@@ -296,6 +351,44 @@ def create_app() -> Flask:
             result={
                 "portfolio_value": python_result,
                 "positions": len(portfolio.positions),
+            },
+            python_seconds=python_seconds,
+            rust_seconds=rust_seconds,
+            speedup=speedup,
+        )
+
+    @app.post("/api/run-rust-crate")
+    def run_rust_crate():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify(error="Expected a JSON object with a preset."), 400
+
+        preset_key = payload.get("preset")
+        if not isinstance(preset_key, str):
+            return jsonify(error="Choose one of the listed text sizes."), 400
+        preset = next(
+            (item for item in CRATE_PRESETS if item["key"] == preset_key),
+            None,
+        )
+        if preset is None:
+            return jsonify(error="Choose one of the listed text sizes."), 400
+
+        text = make_tag_corpus(preset["value"])
+        python_function = lambda: count_tags_python(text)
+        rust_function = lambda: _native.count_tags(text)
+        python_result = python_function()
+        rust_result = rust_function()
+        if python_result != rust_result:
+            return jsonify(error="The Python and Rust matches did not agree."), 500
+
+        python_seconds = _median_runtime(python_function)
+        rust_seconds = _median_runtime(rust_function)
+        speedup = python_seconds / rust_seconds if rust_seconds else None
+        return jsonify(
+            lines=preset["value"],
+            result={
+                "matches": sum(rust_result.values()),
+                "tags": rust_result,
             },
             python_seconds=python_seconds,
             rust_seconds=rust_seconds,

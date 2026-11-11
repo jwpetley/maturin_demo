@@ -34,6 +34,9 @@
         <button id="collections-tab-button" class="tab-button" type="button" role="tab"
                 aria-selected="false" aria-controls="collections-panel"
                 data-tab="collections-panel">Custom structs</button>
+        <button id="crate-tab-button" class="tab-button" type="button" role="tab"
+                aria-selected="false" aria-controls="crate-panel"
+                data-tab="crate-panel">Existing Rust crate</button>
         <button id="maturin-tab-button" class="tab-button" type="button" role="tab"
                 aria-selected="false" aria-controls="maturin-panel"
                 data-tab="maturin-panel">What is maturin?</button>
@@ -155,6 +158,67 @@
           includes looking up and converting each Python attribute through PyO3,
           as well as the calculation. Rust reports an error for missing fields,
           incompatible types, invalid fees, or arithmetic overflow.
+        </p>
+      </section>
+
+      <section id="crate-panel" class="tab-panel" role="tabpanel"
+               aria-labelledby="crate-tab-button" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Reuse the Rust ecosystem</p>
+            <h2>Combine crates for a real workload.</h2>
+          </div>
+          <p class="timing-note">Regex matching · parallel processing · Python dict out</p>
+        </div>
+
+        <p class="about-lede collection-lede">
+          This example uses the existing <a href="https://crates.io/crates/regex"
+          target="_blank" rel="noreferrer">regex crate</a> to find hashtag-like
+          tags, and <a href="https://crates.io/crates/rayon" target="_blank"
+          rel="noreferrer">Rayon</a> to count them across lines in parallel.
+          Python creates the text and calls the native wrapper; Rust returns a
+          frequency dictionary. The compiled regex is cached.
+        </p>
+        <div class="code-grid">
+          <div class="code-card">
+            <div class="code-label"><span class="language-dot python-dot"></span> Python · reference and wrapper</div>
+            <pre><code>{{ crate_python_source }}
+
+{{ crate_call_source }}</code></pre>
+          </div>
+          <div class="code-card rust-card">
+            <div class="code-label"><span class="language-dot rust-dot"></span> Rust · PyO3 + regex + Rayon</div>
+            <pre><code>{{ crate_rust_source }}</code></pre>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>What crosses the boundary?</strong>
+          <p>One Python string goes in. Rust releases the GIL, scans lines in parallel, and returns a compact map; PyO3 converts that map into a Python dictionary. Both timings include result conversion; the text fixture and regex setup are prepared before timing.</p>
+        </div>
+
+        <div class="collection-controls">
+          <div class="run-control">
+            <label for="preset-crate">Text size</label>
+            <select id="preset-crate" name="preset">
+              {% for preset in crate_presets %}
+              <option value="{{ preset.key }}">{{ preset.label }}</option>
+              {% endfor %}
+            </select>
+            <button class="run-button" type="button" data-crate="true">
+              <span aria-hidden="true">▶</span> Run comparison
+            </button>
+          </div>
+        </div>
+        <div class="result-panel" data-result="crate" aria-live="polite">
+          <span class="result-placeholder">Run the example to compare tag counts and execution times.</span>
+        </div>
+        <p class="fine-print">
+          The Python <code>re</code> and Rust <code>regex</code> patterns use the
+          same rule. The Rust function uses Rayon across lines while Python's
+          reference processes the corpus sequentially. Timings depend on available
+          cores, machine, corpus, and crate/Python versions; this is not a universal
+          speed claim.
         </p>
       </section>
 

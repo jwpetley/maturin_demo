@@ -10,6 +10,7 @@ from .benchmarks import (
     sum_multiples_python,
     sum_squares_python,
 )
+from .external_crate import count_tags_python, make_tag_corpus
 from .models import Portfolio, Position, make_portfolio
 
 __all__ = [
@@ -19,7 +20,9 @@ __all__ = [
     "count_primes_python",
     "fibonacci_checksum",
     "fibonacci_checksum_python",
+    "count_tags_python",
     "make_portfolio",
+    "make_tag_corpus",
     "sum_multiples",
     "sum_multiples_python",
     "sum_squares",

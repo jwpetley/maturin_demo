@@ -14,7 +14,7 @@ from maturin_demo import (
     sum_squares,
     sum_squares_python,
 )
-from maturin_demo import _native, make_portfolio
+from maturin_demo import _native, count_tags_python, make_portfolio, make_tag_corpus
 
 
 @pytest.mark.parametrize("n", [0, 1, 25, 2_000_000])
@@ -82,3 +82,24 @@ def test_portfolio_rust_method_rejects_incompatible_python_field() -> None:
 
     with pytest.raises(TypeError):
         portfolio.value_rust()
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "#pyo3 #maturin #Rust_2024",
+        "skip #x and #9invalid but keep #valid_tag",
+        "prefix#embedded and #two##second",
+    ],
+)
+def test_existing_regex_crates_match_python(text: str) -> None:
+    assert _native.count_tags(text) == count_tags_python(text)
+
+
+def test_rust_crate_matches_python_on_generated_corpus() -> None:
+    text = make_tag_corpus(100)
+
+    counts = _native.count_tags(text)
+    assert counts == count_tags_python(text)
+    assert sum(counts.values()) == 500

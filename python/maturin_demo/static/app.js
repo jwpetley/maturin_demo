@@ -14,8 +14,9 @@ for (const button of tabButtons) {
 for (const button of document.querySelectorAll(".run-button")) {
   button.addEventListener("click", async () => {
     const isCollection = button.dataset.collection === "true";
+    const isCrate = button.dataset.crate === "true";
     const example = button.dataset.example;
-    const resultKey = isCollection ? "collection" : example;
+    const resultKey = isCollection ? "collection" : isCrate ? "crate" : example;
     const preset = document.getElementById(`preset-${resultKey}`).value;
     const resultPanel = document.querySelector(`[data-result="${resultKey}"]`);
     button.disabled = true;
@@ -25,11 +26,17 @@ for (const button of document.querySelectorAll(".run-button")) {
 
     try {
       const response = await fetch(
-        isCollection ? "/api/run-collection" : "/api/run",
+        isCollection
+          ? "/api/run-collection"
+          : isCrate
+            ? "/api/run-rust-crate"
+            : "/api/run",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(isCollection ? { preset } : { example, preset }),
+          body: JSON.stringify(
+            isCollection || isCrate ? { preset } : { example, preset },
+          ),
         },
       );
       const result = await response.json();
@@ -55,10 +62,16 @@ for (const button of document.querySelectorAll(".run-button")) {
       summary.textContent = comparison;
       const detail = document.createElement("span");
       detail.className = "result-detail";
-      const resultText = typeof result.result === "object"
-        ? `Portfolio value: ${result.result.portfolio_value.toLocaleString()} · ` +
-          `${result.result.positions.toLocaleString()} positions`
-        : `Result: ${result.result.toLocaleString()}`;
+      const resultText = result.result.tags !== undefined
+        ? `${result.result.matches.toLocaleString()} matches · ` +
+          Object.entries(result.result.tags)
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([tag, count]) => `#${tag}: ${count.toLocaleString()}`)
+            .join(" · ")
+        : typeof result.result === "object"
+          ? `Portfolio value: ${result.result.portfolio_value.toLocaleString()} · ` +
+            `${result.result.positions.toLocaleString()} positions`
+          : `Result: ${result.result.toLocaleString()}`;
       detail.textContent =
         `${resultText} · ` +
         `Python ${formatTime(result.python_seconds)} · ` +

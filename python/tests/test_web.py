@@ -18,6 +18,13 @@ def test_home_page_shows_examples_and_maturin_tab(client) -> None:
     assert "Sum multiples of 3 or 5" in page
     assert "Fibonacci checksum" in page
     assert "Custom structs" in page
+    assert "Existing Rust crate" in page
+    assert "regex crate" in page
+    assert "Rayon" in page
+    assert "regex::Regex" in page
+    assert "use rayon::prelude::*" in page
+    assert "py.detach" in page
+    assert "_native.count_tags(text)" in page
     assert "Keep your class. Speed up its method." in page
     assert "_native.sum_squares(n)" in page
     assert "_native.count_primes(limit)" in page
@@ -99,6 +106,33 @@ def test_run_collection_benchmark_returns_aggregate_and_timings(client) -> None:
 @pytest.mark.parametrize("payload", [None, {}, {"preset": []}, {"preset": "huge"}])
 def test_run_collection_benchmark_rejects_unlisted_sizes(client, payload) -> None:
     response = client.post("/api/run-collection", json=payload)
+
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+
+
+def test_run_rust_crate_returns_tag_counts_and_timings(client) -> None:
+    response = client.post("/api/run-rust-crate", json={"preset": "small"})
+
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["lines"] == 100
+    assert result["result"]["matches"] == 500
+    assert result["result"]["tags"] == {
+        "pyo3": 100,
+        "maturin": 100,
+        "python": 100,
+        "rust": 100,
+        "fastpath": 100,
+    }
+    assert result["python_seconds"] > 0
+    assert result["rust_seconds"] > 0
+    assert result["speedup"] > 0
+
+
+@pytest.mark.parametrize("payload", [None, {}, {"preset": []}, {"preset": "huge"}])
+def test_run_rust_crate_rejects_unlisted_sizes(client, payload) -> None:
+    response = client.post("/api/run-rust-crate", json=payload)
 
     assert response.status_code == 400
     assert "error" in response.get_json()

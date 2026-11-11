@@ -1,5 +1,11 @@
 use pyo3::exceptions::{PyOverflowError, PyValueError};
 use pyo3::prelude::*;
+use rayon::prelude::*;
+use regex::Regex;
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+static TAG_PATTERN: OnceLock<Regex> = OnceLock::new();
 
 #[pyfunction]
 fn sum_squares(n: u64) -> u64 {
@@ -96,6 +102,29 @@ fn portfolio_value(portfolio: &Bound<'_, PyAny>) -> PyResult<u64> {
     Ok(total)
 }
 
+#[pyfunction]
+fn count_tags(py: Python<'_>, text: &str) -> HashMap<String, usize> {
+    let pattern = TAG_PATTERN.get_or_init(|| {
+        Regex::new(r"#([A-Za-z][A-Za-z0-9_]{1,31})").expect("the built-in tag pattern is valid")
+    });
+
+    py.detach(|| {
+        text.par_lines()
+            .fold(HashMap::new, |mut counts, line| {
+                for captures in pattern.captures_iter(line) {
+                    *counts.entry(captures[1].to_owned()).or_insert(0) += 1;
+                }
+                counts
+            })
+            .reduce(HashMap::new, |mut left, right| {
+                for (tag, count) in right {
+                    *left.entry(tag).or_insert(0) += count;
+                }
+                left
+            })
+    })
+}
+
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sum_squares, module)?)?;
@@ -103,5 +132,6 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sum_multiples, module)?)?;
     module.add_function(wrap_pyfunction!(fibonacci_checksum, module)?)?;
     module.add_function(wrap_pyfunction!(portfolio_value, module)?)?;
+    module.add_function(wrap_pyfunction!(count_tags, module)?)?;
     Ok(())
 }

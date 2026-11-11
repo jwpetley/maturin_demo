@@ -9,3 +9,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.27", features = ["extension-module"] }
+rayon = "1.10"
+regex = "1.12"

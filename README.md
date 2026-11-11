@@ -45,12 +45,14 @@ The Rust code does not use `std::hint::black_box`: the extension's return value 
 
 The Custom structs tab focuses on a Python-first workflow: `Portfolio` and `Position` are normal Python dataclasses, and `Portfolio.value_rust()` calls `_native.portfolio_value(self)`. Maturin builds and packages the extension; PyO3 is the binding layer that accepts the Python object as `Bound<PyAny>`, reads `positions` and each required attribute with `getattr(...)?`, and converts values to typed Rust integers with `extract()?`. There is no automatic conversion of an arbitrary Python class into a Rust struct; the binding explicitly defines which attributes and types it needs. Missing attributes and incompatible values become Python errors. Both methods run the same 12-step CPU-heavy pricing calculation. The comparison excludes portfolio construction but includes Rust's attribute lookup and extraction overhead.
 
+The Existing Rust crate tab demonstrates combining the [`regex` crate](https://crates.io/crates/regex) with [Rayon](https://crates.io/crates/rayon). `Cargo.toml` declares both dependencies; the PyO3 function caches its regex, releases the GIL, scans the fixed text corpus across lines in parallel, and returns a tag-frequency map as a Python dictionary. It compares with Python's `re` and `Counter` over the same corpus. Both timings include conversion of the compact result across the binding; text generation and regex compilation are outside the timed section.
+
 The endpoints only accept named examples and preset input sizes. They do not execute submitted code or accept arbitrary workload sizes. The local Flask server is for development; use a WSGI server for shared deployments.
 
 ## Project structure
 
 - `pyproject.toml` defines Python package metadata, dependencies, tests, and maturin's mixed-project settings.
-- `Cargo.toml` and `src/lib.rs` define the PyO3 extension built as a Rust dynamic library.
+- `Cargo.toml` and `src/lib.rs` define the PyO3 extension built as a Rust dynamic library; Cargo.toml also declares the `regex` and `rayon` crates used by the existing-crate example.
 - `python/maturin_demo/benchmarks.py` contains pure-Python function implementations; `python/maturin_demo/models.py` contains the Python-owned portfolio classes and the direct call into the native method.
 - `python/maturin_demo/templates/` and `static/` hold the page, styles, and browser behavior.
 - `python/tests/` checks result parity, the page, and the benchmark endpoint.
