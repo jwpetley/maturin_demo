@@ -46,7 +46,7 @@
             <p class="eyebrow">Pick a workload</p>
             <h2>See the code. Run the code.</h2>
           </div>
-          <p class="timing-note">Median of 3 runs · same machine, same input</p>
+          <p class="timing-note">Median of 3 samples · same machine, same input</p>
         </div>
 
         <div class="example-list">
@@ -95,7 +95,9 @@
         </div>
         <p class="fine-print">
           Results are illustrative, not a promise of a particular speedup. They vary
-          with hardware, Python/Rust builds, and system load.
+          with hardware, Python/Rust builds, and system load. Very short calls are
+          batched for timing. The sum-of-squares result may use an optimized formula,
+          rather than performing the same loop as Python.
         </p>
       </section>
 

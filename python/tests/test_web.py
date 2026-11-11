@@ -24,6 +24,8 @@ def test_home_page_shows_examples_and_maturin_tab(client) -> None:
     assert "_native.sum_multiples(limit)" in page
     assert "_native.fibonacci_checksum(terms)" in page
     assert "_native.portfolio_value(self)" in page
+    assert "std::hint::black_box" not in page
+    assert "rather than performing the same loop as Python" in page
     assert "portfolio.getattr(" in page
     assert ".extract()?" in page
     assert "What is maturin?" in page

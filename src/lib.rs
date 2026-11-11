@@ -3,9 +3,9 @@ use pyo3::prelude::*;
 
 #[pyfunction]
 fn sum_squares(n: u64) -> u64 {
-    let mut total = std::hint::black_box(0_u64);
+    let mut total = 0_u64;
     for value in 1..=n {
-        total = std::hint::black_box(total + value * value);
+        total += value * value;
     }
     total
 }
@@ -35,10 +35,10 @@ fn count_primes(limit: usize) -> usize {
 
 #[pyfunction]
 fn sum_multiples(limit: u64) -> u64 {
-    let mut total = std::hint::black_box(0_u64);
+    let mut total = 0_u64;
     for value in 0..limit {
         if value % 3 == 0 || value % 5 == 0 {
-            total = std::hint::black_box(total + value);
+            total += value;
         }
     }
     total
@@ -49,8 +49,7 @@ fn fibonacci_checksum(terms: u64) -> u64 {
     let (mut previous, mut current) = (0_u64, 1_u64);
     let mut total = 0_u64;
     for _ in 0..terms {
-        total = std::hint::black_box(total + current);
-        total %= 1_000_000_007;
+        total = (total + current) % 1_000_000_007;
         (previous, current) = (current, (previous + current) % 1_000_000_007);
     }
     total

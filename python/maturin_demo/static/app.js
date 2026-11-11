@@ -37,10 +37,13 @@ for (const button of document.querySelectorAll(".run-button")) {
         throw new Error(result.error || "The benchmark could not be completed.");
       }
 
-      const pythonMs = result.python_seconds * 1000;
-      const rustMs = result.rust_seconds * 1000;
+      const formatTime = (seconds) => seconds >= 0.001
+        ? `${(seconds * 1000).toFixed(3)} ms`
+        : `${(seconds * 1_000_000).toFixed(2)} µs`;
       const comparison = result.speedup === null
         ? "The Rust run was too short to time reliably"
+        : result.example === "Sum of squares" && result.speedup > 1000
+          ? "Rust optimized the loop into an equivalent formula"
         : result.speedup >= 1
           ? `Rust was ${result.speedup.toFixed(1)}× faster in this run`
           : `Python was ${(1 / result.speedup).toFixed(1)}× faster in this run`;
@@ -58,7 +61,8 @@ for (const button of document.querySelectorAll(".run-button")) {
         : `Result: ${result.result.toLocaleString()}`;
       detail.textContent =
         `${resultText} · ` +
-        `Python ${pythonMs.toFixed(3)} ms · Rust ${rustMs.toFixed(3)} ms`;
+        `Python ${formatTime(result.python_seconds)} · ` +
+        `Rust ${formatTime(result.rust_seconds)}`;
       resultPanel.append(summary, detail);
     } catch (error) {
       resultPanel.classList.remove("is-running");
