@@ -15,6 +15,18 @@ COPY pyproject.toml Cargo.toml Cargo.lock README.md ./
 COPY src/ src/
 COPY python/ python/
 
+FROM builder AS dev
+
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:/root/.cargo/bin:${PATH}"
+
+RUN python -m venv "$VIRTUAL_ENV" \
+    && python -m pip install --no-cache-dir -e ".[dev]"
+
+CMD ["/bin/sh"]
+
+FROM builder AS wheel-builder
+
 RUN python -m pip wheel --no-cache-dir --no-deps --wheel-dir /wheels .
 
 FROM python:3.12-slim-bookworm AS runtime
@@ -23,7 +35,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 WORKDIR /app
 
-COPY --from=builder /wheels /wheels
+COPY --from=wheel-builder /wheels /wheels
 RUN python -m pip install --no-cache-dir /wheels/*.whl \
     && rm -rf /wheels \
     && useradd --create-home --uid 10001 app

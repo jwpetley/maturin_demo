@@ -19,13 +19,13 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-The PEP 517 build backend is maturin. It compiles the Rust crate and installs the Python package into the virtual environment. For iterative Rust development, rebuild the extension with:
+The build backend is maturin. It compiles the Rust crate and installs the Python package into the virtual environment. For iterative Rust development, rebuild the extension with:
 
 ```bash
 maturin develop
 ```
 
-Run the parity tests with:
+Run the tests with:
 
 ```bash
 pytest
@@ -63,7 +63,18 @@ Build the image from the project root and publish its port:
 
 ```bash
 docker build -t maturin-flask-demo .
-docker run --rm -p 5000:5000 maturin-flask-demo
+docker run --rm -p 5000:5000 maturin-flask-demo # Final runtime development
 ```
 
 Then open [http://127.0.0.1:5000](http://127.0.0.1:5000). The multi-stage Docker build compiles the extension in a Python environment with Rust tooling, then copies the wheel into a smaller runtime image. The app runs under Waitress as a non-root user.
+
+For an interactive development image with Rust, maturin, the project source, and
+the development dependencies installed, build and enter the `dev` target:
+
+```bash
+docker build --target dev -t maturin-flask-demo-dev .
+docker run --rm -it maturin-flask-demo-dev
+```
+
+From its shell, you can run `maturin develop`, `maturin build`, `cargo check`,
+or `pytest`. The normal image remains the smaller runtime image.
