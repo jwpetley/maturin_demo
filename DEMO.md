@@ -259,6 +259,62 @@ equality before timing; the UI reports median timings. Speedups depend on the
 workload, build profile, conversion overhead, and machine, so do not promise a
 fixed multiplier. Stop the development server with `Ctrl+C`.
 
+### How [web.py](python/maturin_demo/web.py) calls Rust
+
+`web.py` imports the compiled extension as `_native`:
+
+```python
+from . import _native
+```
+
+For the four basic benchmarks, `EXAMPLES` stores Rust functions as ordinary
+Python callables:
+
+```python
+"rust_function": _native.sum_squares
+```
+
+The selected preset is then passed through `example["rust_function"](value)`.
+This is effectively `_native.sum_squares(value)` or the corresponding
+`count_primes`, `sum_multiples`, or `fibonacci_checksum` call. PyO3 extracts
+the Python integer into the Rust argument type and converts the Rust return
+value back into a Python integer.
+
+The custom-struct example follows the same pattern through a Python method:
+
+```python
+portfolio.value_rust()
+# Equivalent native call:
+_native.portfolio_value(portfolio)
+```
+
+`Portfolio` remains a Python dataclass. Rust receives it as `Bound<PyAny>` and
+reads attributes such as `positions` and `active` explicitly; it does not
+automatically convert the dataclass into a Rust struct.
+
+The existing-crate example calls:
+
+```python
+_native.count_tags(text)
+```
+
+Here PyO3 extracts the Python string as a Rust `&str`. Rust returns a
+`HashMap`, which PyO3 converts into a normal Python dictionary. In the Flask
+route, `web.py` compares this result with the Python implementation, times both
+callables with `_median_runtime`, and returns the medians in the JSON response.
+
+The call chain for a browser request is:
+
+```text
+Browser
+  -> Flask route in web.py
+  -> Python callable or wrapper
+  -> _native PyO3 extension
+  -> #[pyfunction] Rust implementation
+  -> converted Python result
+  -> Flask JSON response
+```
+
 **Development loop:** edit Rust, leave any running REPL/server, run
 `maturin develop` (or `maturin develop --release`), then start a fresh Python
 process. An already-loaded native module is not refreshed by rebuilding or by
